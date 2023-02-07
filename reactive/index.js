@@ -1,5 +1,4 @@
-import {effect} from "./effect.js"
-import reactive from "./reactive.js"
+import {reactive,effect} from "./reactive.js"
 
 let app = document.getElementById('app')
 let btn = document.getElementById('btn')
