@@ -1,4 +1,3 @@
-
 // 利用proxy进行数据劫持（vue2中利用的是definepropty，考虑到新增属性那些，vue3改成了proxy，直接劫持整个对象）
 const reactive = (obj)=>{
     return new Proxy(obj,{
@@ -14,20 +13,45 @@ const reactive = (obj)=>{
     })
 }
 
-let activeEffect = null // 活动函数
 // 用来嵌套effect：
 // 用栈记录副作用函数，并且执行完后，弹出，此时的活动函数如果在嵌套中，应该是外层的，所以用栈记录（vuejs设计与实现4.5）
 let effectStack = []  
+let activeEffect = null // 活动函数
+// 中介：
+let effect = (fn,options = {})=>{
+    function effectfn(){
+        cleanup(effectfn)
+        activeEffect = effectfn
+        effectStack.push(effect)
+        const res = fn()
+        effectStack.pop()
+        activeEffect = effectStack[effectStack.length - 1] // 回溯到上一个作用函数
+        return res
+    }
+    // 收集哪些该与副作用函数相关联的依赖集合
+    effectfn.deps = []
+
+    // options:可实现调度器，懒加载
+    effectfn.options = options
+
+    // 如果lazy为true,则不立即执行
+    if(!options.lazy){
+        effectfn()
+    }
+
+    // 并且返回其函数，由用户控制什么时候执行
+    return effectfn
+}
+
 // 存储响应式对象
 let bucket = new WeakMap()
-
 // 数据结构：
 // weakmap ---- obj->key(map)
 // map     ---- key->effect(set)
 
 // 事件跟踪
 let track = (target,key)=>{
-    console.log("track",key)
+    // console.log("track",key)
     //  如果没有副作用则直接返回
     if(!activeEffect) return ;
 
@@ -53,39 +77,30 @@ let track = (target,key)=>{
 
 // 事件派发
 let trigger = (target,key)=>{
-    console.log('trigger',key)
+    // console.log('trigger',key)
     let depsMap = bucket.get(target)
 
     if(!depsMap) return ;
 
     let effects = depsMap.get(key)
     
-    const neweffects = new Set()
+    const effectsToRun = new Set()
 
     // 避免那些同时进行get和set的操作造成的死循环
     // 避免死循环，如果活动函数与当前函数和一样，则不需要执行
     effects && effects.forEach((effect)=>{
         if(activeEffect !== effect){
-            neweffects.add(effect)
+            effectsToRun.add(effect)
         }
     })
-    neweffects.forEach(fn=>fn())
-}
-
-// 中介：
-let effect = (fn)=>{
-    function effectfn(){
-        console.log('effect')
-        cleanup(effectfn)
-        activeEffect = effectfn
-        effectStack.push(effect)
-        fn()
-        effectStack.pop()
-        activeEffect = effectStack[effectStack.length - 1] // 回溯到上一个作用函数
-    }
-    // 收集哪些该与副作用函数相关联的依赖集合
-    effectfn.deps = []
-    effectfn()
+    effectsToRun.forEach(fn=>{
+        // 如果有传进来的调度器，则执行用户给的，否则执行默认的
+        if(fn.options.scheduler){
+            fn.options.scheduler(fn)
+        }else{
+            fn()
+        }
+    })
 }
 
 // 清除函数：用来进行分支切换
@@ -105,5 +120,31 @@ let cleanup = (effectfn)=>{
     effectfn.deps.length = 0
 }
 
-export  {effect,reactive}
+// 计算属性
+const computed = (getter)=>{
+    // console.log(getter)
+    let value,dirty = true
+    const effectfn = effect(getter,{
+        lazy:true,
+        scheduler(){
+            if(!dirty) {
+                dirty = true
+                trigger(obj,'value')
+            }
+        }
+    })
+    const obj = {
+        get value(){ 
+            if(dirty){
+                value = effectfn()
+                dirty = false
+            }
+            track(obj,'value')
+            return value
+        }     
+    }
+    return obj
+}
+
+export  {effect,reactive,computed}
 
