@@ -145,7 +145,7 @@ let trigger = (target,key)=>{
 
 ​	实施：给每个作用函数定义一个数组进行收集，让key与effect形成相互关联的联系
 
-![image-20230208161811894](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20230208161811894.png)
+![image-20230208163123219](image-20230208163123219.png)
 
 ```javascript
 // effect函数
