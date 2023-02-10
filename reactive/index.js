@@ -1,4 +1,4 @@
-import {reactive,effect,computed} from "./reactive.js"
+import {reactive,effect,computed, watch} from "./reactive.js"
 let app = document.getElementById('app')
 let btn = document.getElementById('btn')
 let temp1 , temp2
@@ -9,21 +9,26 @@ const appData = reactive({
     lastName:"院"
 })
 
-// 计算属性
-const computedData = computed(()=>{
-    return appData.firstName + appData.lastName
-})
+
 btn.addEventListener('click',()=>{
     appData.firstName += 'a'
     // console.log(computedData.value)
 })
-
-
-// 有个bug，应该是嵌套问题
-effect(()=>{
-    app.innerHTML = computedData.value
+watch(()=>appData.firstName,(newValue,oldValue)=>{
+    console.log(newValue,oldValue)
 })
-
+// effect(()=>appData.firstName,{
+//     scheduler(){
+//         console.log(appData.firstName)
+//     }
+// })
+// effect(()=>{
+//     app.innerHTML = appData.lastName
+// })
+// 计算属性
+// const computedData = computed(()=>{
+//     return appData.firstName + appData.lastName
+// })
 // 嵌套effect
 // effect(()=>{
 //     temp1 = appData.text

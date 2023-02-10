@@ -33,7 +33,6 @@ let effect = (fn,options = {})=>{
 
     // options:可实现调度器，懒加载
     effectfn.options = options
-
     // 如果lazy为true,则不立即执行
     if(!options.lazy){
         effectfn()
@@ -54,7 +53,7 @@ let track = (target,key)=>{
     // console.log("track",key)
     //  如果没有副作用则直接返回
     if(!activeEffect) return ;
-
+    
     // 通过对象拿到对应的键值(map类型)
     let depsMap = bucket.get(target)
 
@@ -69,8 +68,7 @@ let track = (target,key)=>{
     if(!deps){
         depsMap.set(key,(deps = new Set()))
     }
-
-    // 添加进去
+    // 添加进去 
     deps.add(activeEffect)
     activeEffect.deps.push(deps)
 }
@@ -135,16 +133,53 @@ const computed = (getter)=>{
     })
     const obj = {
         get value(){ 
+            // 执行effectfn之前得先track
+            track(obj,'value')
             if(dirty){
                 value = effectfn()
                 dirty = false
             }
-            track(obj,'value')
             return value
         }     
     }
     return obj
 }
 
-export  {effect,reactive,computed}
+
+const traverse = (value,seen = new Set())=>{
+
+    if(typeof value !== 'object' || value === null || seen.has(value)) return ;
+    seen.add(value)
+    for(let k in value){
+        traverse(value[k],seen)
+    }
+    return value
+}
+
+// 监视
+const watch = (source,fn,options={})=>{
+    let getter
+    if(typeof source === 'function'){
+        getter = source
+    }else{
+        getter = () => traverse(source)
+    }
+    let oldValue,newValue
+    let effectfn = effect(
+        ()=>getter(),
+        {   
+            lazy:true,
+            scheduler(){
+                newValue = effectfn()
+                fn(newValue,oldValue)
+                oldValue = newValue
+            }
+        }   
+    )
+    oldValue = effectfn()
+}
+
+
+
+export  {effect,reactive,computed,watch}
 
