@@ -97,3 +97,109 @@ let cleanup = (effectfn)=>{
 }
 ```
 
+#### 3.2 - computed和watch
+
+##### computed
+
++ value：保存值（应该是利用了闭包的特性）
++ dirty：缓存值，为true时代表该数据时新的需要更新，为false时代表我只是读取数据，并没有对数据进行更改，可以用上次的值，减少开销
++ obj：内置封装的一个对象，并且构建一个getter，当读取由计算属性定义的值的value属性时会进行触发
+
+```javascript
+// 计算属性
+const computed = (getter)=>{
+    // console.log(getter)
+    let value,dirty = true
+    const effectfn = effect(getter,{
+        lazy:true,
+        scheduler(){
+            if(!dirty) {
+                dirty = true
+                trigger(obj,'value')
+            }
+        }
+
+    })
+    const obj = {
+        get value(){ 
+            // 执行effectfn之前得先track
+            track(obj,'value')
+            if(dirty){
+                value = effectfn()
+                dirty = false
+            }
+            return value
+        }     
+    }
+    return obj
+}
+
+//index.js
+const computedData = computed(()=>{
+    return appData.firstName + appData.lastName
+})
+console.log(computedData.value)
+```
+
+##### watch
+
++  traverse函数： 有时候监听的是整个对象，所以要对所有的进行一次读取追踪
++ source：监听对象
++ fn：回调函数
++ options
+  + immediate
+  + flush（post）
+
+```javascript
+const traverse = (value,seen = new Set())=>{
+    if(typeof value !== 'object' || value === null || seen.has(value)) return ;
+    seen.add(value)
+    for(let k in value){
+        traverse(value[k],seen)
+    }
+    return value
+}
+
+// 监视
+const watch = (source,fn,options={})=>{
+    let getter
+    // 如果本身就是一个getter函数就只需要直接复制,如果是个对象就需要遍历一下该对象
+    if(typeof source === 'function'){
+        getter = source
+    }else{
+        getter = () => traverse(source)
+    }
+    // 新值旧值
+    let oldValue,newValue
+    // 对于立即监听的功能,所以需要将job函数的功能抽离出来
+    let job = ()=>{
+        newValue = effectfn()
+        fn(newValue,oldValue)
+        // 利用闭包记录旧值
+        oldValue = newValue
+    }
+    let effectfn = effect(
+        ()=>getter(),
+        {   
+            lazy:true,
+            scheduler(){
+                // 利用promise将任务加到微任务队列而不是立即执行，达到所需要的在组件更新后再执行的效果
+                if(options?.flush === 'post'){
+                    let p = new Promise.resolve()
+                    p.then(job)
+                }else{
+                    job()
+                }
+            }
+        }   
+    )
+    if(options?.immediate){
+        job()
+    }else{
+        // 第一次不存在新旧值之说
+        oldValue = effectfn()
+    }
+}
+```
+
+> 暂时未考虑其他数据类型，由于reactive函数功能只是简单实现
