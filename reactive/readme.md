@@ -6,6 +6,8 @@
 + index.js          (js文件)
 + reactive.js      (数据响应式)
 
+>  需要下载一个live server插件才能跑起来index.html文件否则会报错
+
 ### 1 - index.html
 
 该文件作用不大，只是用来更直观的看到数据响应式

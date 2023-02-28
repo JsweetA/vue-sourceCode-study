@@ -8,10 +8,12 @@ const appData = reactive({
     ok:true,
     lastName:"院"
 })
-
+effect(()=>{
+    app.innerText = appData.firstName + appData.lastName
+})
 
 btn.addEventListener('click',()=>{
-    appData.firstName += 'a'
+    appData.lastName += 'a'
     // console.log(computedData.value)
 })
 watch(()=>appData.firstName,(newValue,oldValue)=>{

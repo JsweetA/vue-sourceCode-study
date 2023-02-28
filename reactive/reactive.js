@@ -130,6 +130,7 @@ const computed = (getter)=>{
                 trigger(obj,'value')
             }
         }
+
     })
     const obj = {
         get value(){ 
@@ -165,18 +166,31 @@ const watch = (source,fn,options={})=>{
         getter = () => traverse(source)
     }
     let oldValue,newValue
+    let job = ()=>{
+        newValue = effectfn()
+        fn(newValue,oldValue)
+        oldValue = newValue
+    }
     let effectfn = effect(
         ()=>getter(),
         {   
             lazy:true,
             scheduler(){
-                newValue = effectfn()
-                fn(newValue,oldValue)
-                oldValue = newValue
+                // 利用promise将任务加到微任务队列而不是立即执行，达到所需要的在组件更新后再执行的效果
+                if(options?.flush === 'post'){
+                    let p = new Promise.resolve()
+                    p.then(job)
+                }else{
+                    job()
+                }
             }
         }   
     )
-    oldValue = effectfn()
+    if(options?.immediate){
+        job()
+    }else{
+        oldValue = effectfn()
+    }
 }
 
 
