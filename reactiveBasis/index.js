@@ -17,7 +17,7 @@ btn.addEventListener('click',()=>{
     // console.log(computedData.value)
 })
 watch(()=>appData.firstName,(newValue,oldValue)=>{
-    console.log(newValue,oldValue)
+        console.log(newValue,oldValue)
 })
 // effect(()=>appData.firstName,{
 //     scheduler(){
